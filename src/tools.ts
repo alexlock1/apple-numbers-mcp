@@ -4,8 +4,6 @@ import {
   getWorkbookInfo,
   getTableData,
   findTableRows,
-  addTableRows,
-  deleteTableRows,
   WhereCondition,
 } from "./lib/numbers.js";
 import {
@@ -14,6 +12,8 @@ import {
   detectColorMapping,
   updateRowsViaAppleScript,
   batchUpdateRowsViaAppleScript,
+  addRowsViaAppleScript,
+  deleteRowsViaAppleScript,
   RGBColor,
 } from "./lib/applescript.js";
 
@@ -198,7 +198,7 @@ export function registerTools(server: McpServer): void {
     },
     async ({ filePath, sheetName, rows }) => {
       try {
-        const result = addTableRows(filePath, rows, { sheetName });
+        const result = await addRowsViaAppleScript(filePath, sheetName, rows);
         return {
           content: [
             {
@@ -230,7 +230,7 @@ export function registerTools(server: McpServer): void {
     },
     async ({ filePath, sheetName, where }) => {
       try {
-        const result = deleteTableRows(filePath, where as WhereCondition, { sheetName });
+        const result = await deleteRowsViaAppleScript(filePath, sheetName, where as WhereCondition);
         return {
           content: [
             {

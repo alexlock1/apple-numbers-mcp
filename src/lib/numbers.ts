@@ -200,6 +200,11 @@ export function getTableData(
   };
 }
 
+// Row with index for targeted operations (e.g., coloring)
+export interface IndexedRow extends TableRow {
+  _rowIndex: number; // 1-based row index for AppleScript (header is row 1, data starts at row 2)
+}
+
 // Find rows with options
 export function findTableRows(
   filePath: string,
@@ -210,19 +215,37 @@ export function findTableRows(
     limit?: number;
     offset?: number;
   } = {}
-): { rows: TableRow[]; count: number; totalMatches: number; hasMore: boolean } {
+): { rows: IndexedRow[]; count: number; totalMatches: number; hasMore: boolean } {
   const wb = readWorkbook(filePath);
   const ws = getSheet(wb, options.sheetName);
-  let { rows } = sheetToTable(ws);
+  const { rows } = sheetToTable(ws);
 
-  // Apply where condition
-  const matched = findRows(rows, where);
+  // Apply where condition and track original indices
+  // rows[i] corresponds to AppleScript row (i + 2) because:
+  // - AppleScript is 1-based
+  // - Row 1 is the header
+  // - Data starts at row 2
+  const matched: IndexedRow[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    if (matchesCondition(rows[i], where)) {
+      matched.push({
+        ...rows[i],
+        _rowIndex: i + 2, // AppleScript row index
+      });
+    }
+  }
   const totalMatches = matched.length;
 
-  // Apply column filter
+  // Apply column filter (preserve _rowIndex)
   let filteredRows = matched;
   if (options.columns && options.columns.length > 0) {
-    filteredRows = filterColumns(matched, options.columns);
+    filteredRows = matched.map((row) => {
+      const filtered: IndexedRow = { _rowIndex: row._rowIndex };
+      for (const col of options.columns!) {
+        filtered[col] = row[col];
+      }
+      return filtered;
+    });
   }
 
   // Apply pagination

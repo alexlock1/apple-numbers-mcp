@@ -210,6 +210,137 @@ end tell
   await runAppleScript(script);
 }
 
+// Add rows via AppleScript (uses SheetJS to read headers, AppleScript to write)
+export async function addRowsViaAppleScript(
+  filePath: string,
+  sheetName: string | undefined,
+  newRows: { [column: string]: unknown } | Array<{ [column: string]: unknown }>
+): Promise<{ addedCount: number; totalRows: number }> {
+  // Read the file to get headers and current row count
+  const wb = readWorkbook(filePath);
+  const ws = getSheet(wb, sheetName);
+  const { headers, rows } = sheetToTable(ws);
+  const currentRowCount = rows.length;
+
+  const rowsToAdd = Array.isArray(newRows) ? newRows : [newRows];
+  if (rowsToAdd.length === 0) {
+    return { addedCount: 0, totalRows: currentRowCount };
+  }
+
+  // Collect all columns from new rows (may include new columns not in headers)
+  const allColumns = new Set(headers);
+  for (const row of rowsToAdd) {
+    for (const key of Object.keys(row)) {
+      allColumns.add(key);
+    }
+  }
+  const finalHeaders = Array.from(allColumns);
+
+  // Find column indices (1-based for AppleScript)
+  const colIndices: { [col: string]: number } = {};
+  for (let i = 0; i < finalHeaders.length; i++) {
+    colIndices[finalHeaders[i]] = i + 1;
+  }
+
+  const absPath = path.resolve(filePath);
+
+  // Build AppleScript commands for adding rows
+  const rowCommands: string[] = [];
+
+  for (let rowIdx = 0; rowIdx < rowsToAdd.length; rowIdx++) {
+    const row = rowsToAdd[rowIdx];
+    // Add a new row at the end of the table
+    rowCommands.push("add row below last row");
+
+    // Set values for each column in the new row
+    for (const [col, value] of Object.entries(row)) {
+      const colIndex = colIndices[col];
+      let formattedValue: string;
+      if (value === null || value === undefined) {
+        formattedValue = '""';
+      } else if (typeof value === "number") {
+        formattedValue = String(value);
+      } else if (typeof value === "boolean") {
+        formattedValue = value ? "true" : "false";
+      } else {
+        formattedValue = `"${String(value).replace(/"/g, '\\"')}"`;
+      }
+      // After adding row, last row is the new row
+      rowCommands.push(`set value of cell ${colIndex} of last row to ${formattedValue}`);
+    }
+  }
+
+  const script = `
+tell application "Numbers"
+  activate
+  set theDoc to open POSIX file "${absPath}"
+  delay 0.3
+  tell theDoc
+    tell sheet 1
+      tell table 1
+        ${rowCommands.join("\n        ")}
+      end tell
+    end tell
+  end tell
+  save theDoc
+end tell
+  `.trim();
+
+  await runAppleScript(script);
+
+  return { addedCount: rowsToAdd.length, totalRows: currentRowCount + rowsToAdd.length };
+}
+
+// Delete rows via AppleScript (uses SheetJS to find matching rows, AppleScript to delete)
+export async function deleteRowsViaAppleScript(
+  filePath: string,
+  sheetName: string | undefined,
+  where: WhereCondition
+): Promise<{ deletedCount: number; remainingRows: number }> {
+  // Read the file to find rows matching the condition
+  const wb = readWorkbook(filePath);
+  const ws = getSheet(wb, sheetName);
+  const { rows } = sheetToTable(ws);
+
+  // Find indices of rows to delete (AppleScript uses 1-based, header is row 1, data starts at row 2)
+  const rowIndicesToDelete: number[] = [];
+  for (let i = 0; i < rows.length; i++) {
+    if (matchesCondition(rows[i], where)) {
+      rowIndicesToDelete.push(i + 2); // +1 for header, +1 for 1-based
+    }
+  }
+
+  if (rowIndicesToDelete.length === 0) {
+    return { deletedCount: 0, remainingRows: rows.length };
+  }
+
+  const absPath = path.resolve(filePath);
+
+  // Delete rows from highest index to lowest to avoid index shifting
+  const sortedIndices = rowIndicesToDelete.sort((a, b) => b - a);
+  const deleteCommands = sortedIndices.map((idx) => `delete row ${idx}`).join("\n        ");
+
+  const script = `
+tell application "Numbers"
+  activate
+  set theDoc to open POSIX file "${absPath}"
+  delay 0.3
+  tell theDoc
+    tell sheet 1
+      tell table 1
+        ${deleteCommands}
+      end tell
+    end tell
+  end tell
+  save theDoc
+end tell
+  `.trim();
+
+  await runAppleScript(script);
+
+  return { deletedCount: rowIndicesToDelete.length, remainingRows: rows.length - rowIndicesToDelete.length };
+}
+
 // Update rows matching a condition (uses SheetJS to read, AppleScript to write)
 export async function updateRowsViaAppleScript(
   filePath: string,
