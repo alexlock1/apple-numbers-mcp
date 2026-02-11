@@ -44,7 +44,7 @@ export async function setRowColor(
   // AppleScript to set row background color
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.5
   tell theDoc
@@ -107,7 +107,7 @@ export async function colorRowsByValue(
 
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.5
   tell theDoc
@@ -150,7 +150,7 @@ export async function setCellValue(
 
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.3
   tell theDoc
@@ -193,7 +193,7 @@ export async function updateCellsBatch(
 
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.3
   tell theDoc
@@ -272,7 +272,7 @@ export async function addRowsViaAppleScript(
 
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.3
   tell theDoc
@@ -322,7 +322,7 @@ export async function deleteRowsViaAppleScript(
 
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.3
   tell theDoc
@@ -499,7 +499,7 @@ export async function getRowColors(
   // AppleScript to get all row colors at once
   const script = `
 tell application "Numbers"
-  activate
+  launch
   set theDoc to open POSIX file "${absPath}"
   delay 0.5
   set colorList to {}
