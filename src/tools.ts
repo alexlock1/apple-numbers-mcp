@@ -7,6 +7,7 @@ import {
   WhereCondition,
 } from "./lib/numbers.js";
 import {
+  setCellColor,
   setRowColor,
   colorRowsByValue,
   detectColorMapping,
@@ -320,6 +321,53 @@ export function registerTools(server: McpServer): void {
             {
               type: "text",
               text: JSON.stringify({ success: true, rowIndex, color }, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [{ type: "text", text: `Error: ${(error as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  // 7b. numbers_set_cell_color - Set cell background color (requires macOS)
+  server.registerTool(
+    "numbers_set_cell_color",
+    {
+      description:
+        "Set the background color of a specific cell. Requires macOS (uses AppleScript). Numbers app will open briefly.",
+      inputSchema: {
+        filePath: z.string().describe("Absolute path to the .numbers file"),
+        sheetName: z.string().optional().describe("Sheet name (defaults to first sheet)"),
+        rowIndex: z.number().describe("1-based row index (row 1 is the header)"),
+        column: z.string().describe("Column name (e.g., 'Status')"),
+        color: z
+          .object({
+            r: z.number().min(0).max(255).describe("Red component (0-255)"),
+            g: z.number().min(0).max(255).describe("Green component (0-255)"),
+            b: z.number().min(0).max(255).describe("Blue component (0-255)"),
+          })
+          .describe("RGB color values"),
+      },
+    },
+    async ({ filePath, sheetName, rowIndex, column, color }) => {
+      try {
+        // Resolve column name to 1-based index
+        const info = getWorkbookInfo(filePath);
+        const headers = info.activeSheet.headers;
+        const colIdx = headers.indexOf(column);
+        if (colIdx === -1) {
+          throw new Error(`Column '${column}' not found. Available: ${headers.join(", ")}`);
+        }
+        await setCellColor(filePath, sheetName, rowIndex, colIdx + 1, color as RGBColor);
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: true, rowIndex, column, color }, null, 2),
             },
           ],
         };

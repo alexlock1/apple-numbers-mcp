@@ -31,6 +31,36 @@ async function runAppleScript(script: string): Promise<string> {
   }
 }
 
+// Set a single cell's background color
+export async function setCellColor(
+  filePath: string,
+  sheetName: string | undefined,
+  rowIndex: number, // 1-based (includes header row)
+  colIndex: number, // 1-based
+  color: RGBColor
+): Promise<void> {
+  const absPath = path.resolve(filePath);
+  const numbersColor = toNumbersColor(color);
+
+  const script = `
+tell application "Numbers"
+  launch
+  set theDoc to open POSIX file "${absPath}"
+  delay 0.5
+  tell theDoc
+    tell sheet 1
+      tell table 1
+        set background color of cell ${colIndex} of row ${rowIndex} to {${numbersColor.r}, ${numbersColor.g}, ${numbersColor.b}}
+      end tell
+    end tell
+  end tell
+  save theDoc
+end tell
+  `.trim();
+
+  await runAppleScript(script);
+}
+
 // Set a single row's background color
 export async function setRowColor(
   filePath: string,
